@@ -1,0 +1,6 @@
+Flask==3.0.3
+Flask-Cors==3.0.10
+mediapipe==0.10.14
+numpy==1.26.4
+opencv-python==4.5.5.62
+gunicorn
