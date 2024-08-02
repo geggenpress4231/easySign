@@ -33,9 +33,13 @@ def smooth_coordinates(last_c, current_c, factor):
 
 def decode_base64_image(base64_str):
     """Decode a base64 string into an image."""
-    image_data = base64_str.split(",")[1]
-    image_bytes = base64.b64decode(image_data)
-    return Image.open(BytesIO(image_bytes))
+    try:
+        image_data = base64_str.split(",")[1]
+        image_bytes = base64.b64decode(image_data)
+        return Image.open(BytesIO(image_bytes))
+    except Exception as e:
+        print(f"Error decoding base64 image: {e}")
+        raise
 
 def process_frame(image):
     global is_drawing, last_x, last_y, canvas
@@ -80,13 +84,16 @@ def process_frame_endpoint():
     if 'image' not in data:
         return jsonify({'error': 'No image provided'}), 400
 
-    image = decode_base64_image(data['image'])
-    processed_frame = process_frame(image)
+    try:
+        image = decode_base64_image(data['image'])
+        processed_frame = process_frame(image)
 
-    _, buffer = cv2.imencode('.jpg', processed_frame)
-    encoded_image = base64.b64encode(buffer).decode('utf-8')
+        _, buffer = cv2.imencode('.jpg', processed_frame)
+        encoded_image = base64.b64encode(buffer).decode('utf-8')
 
-    return jsonify({'image': 'data:image/jpeg;base64,' + encoded_image})
+        return jsonify({'image': 'data:image/jpeg;base64,' + encoded_image})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/start_drawing', methods=['POST'])
 def start_drawing():
