@@ -1,11 +1,10 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef } from 'react';
 
 const CameraModal = ({ isOpen, onClose, onSave }) => {
     const modalRef = useRef(null);
     const videoRef = useRef(null);
     const canvasRef = useRef(null);
     const intervalIdRef = useRef(null);
-    const [isDrawing, setIsDrawing] = useState(false);
 
     useEffect(() => {
         if (isOpen) {
@@ -53,13 +52,15 @@ const CameraModal = ({ isOpen, onClose, onSave }) => {
     const captureFrame = async () => {
         if (!videoRef.current || !canvasRef.current) return;
 
+        // Ensure the off-screen canvas is initialized
         const offscreenCanvas = document.createElement('canvas');
         const offscreenCtx = offscreenCanvas.getContext('2d');
-        if (!offscreenCtx) return;
+        if (!offscreenCtx) return; // Ensure offscreenCtx is valid
 
         offscreenCanvas.width = videoRef.current.videoWidth;
         offscreenCanvas.height = videoRef.current.videoHeight;
 
+        // Flip the video image horizontally (mirroring)
         offscreenCtx.save();
         offscreenCtx.scale(-1, 1);
         offscreenCtx.translate(-offscreenCanvas.width, 0);
@@ -68,7 +69,7 @@ const CameraModal = ({ isOpen, onClose, onSave }) => {
 
         const dataUrl = offscreenCanvas.toDataURL('image/jpeg');
         try {
-            const response = await fetch('http://backend:5000/process_frame', {
+            const response = await fetch('http://backend:5000/process_frame', { // Change the URL to match Docker service name
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ image: dataUrl }),
@@ -79,7 +80,7 @@ const CameraModal = ({ isOpen, onClose, onSave }) => {
             img.onload = () => {
                 requestAnimationFrame(() => {
                     const ctx = canvasRef.current ? canvasRef.current.getContext('2d') : null;
-                    if (!ctx) return;
+                    if (!ctx) return; // Ensure ctx is valid
                     ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
                     ctx.drawImage(img, 0, 0, canvasRef.current.width, canvasRef.current.height);
                 });
@@ -92,7 +93,6 @@ const CameraModal = ({ isOpen, onClose, onSave }) => {
     const handleKeyDown = async (e) => {
         if (e.repeat) return;
         if (e.key === 'w') {
-            setIsDrawing(true);
             await sendCommand('start_drawing');
         } else if (e.key === 'c') {
             await sendCommand('clear_canvas');
@@ -106,7 +106,6 @@ const CameraModal = ({ isOpen, onClose, onSave }) => {
 
     const handleKeyUp = async (e) => {
         if (e.key === 'w') {
-            setIsDrawing(false);
             await sendCommand('stop_drawing');
         }
     };
@@ -120,7 +119,7 @@ const CameraModal = ({ isOpen, onClose, onSave }) => {
 
     const sendCommand = async (command) => {
         try {
-            await fetch(`http://backend:5000/${command}`, {
+            await fetch(`http://backend:5000/${command}`, { // Change the URL to match Docker service name
                 method: 'POST',
             });
         } catch (error) {
@@ -134,7 +133,7 @@ const CameraModal = ({ isOpen, onClose, onSave }) => {
             const formData = new FormData();
             formData.append('signature', blob, 'signature.png');
             try {
-                const response = await fetch('http://backend:5000/save_signature', {
+                const response = await fetch('http://backend:5000/save_signature', { // Change the URL to match Docker service name
                     method: 'POST',
                     body: formData,
                 });
@@ -148,49 +147,13 @@ const CameraModal = ({ isOpen, onClose, onSave }) => {
         });
     };
 
-    const handleCanvasDraw = (e) => {
-        if (!isDrawing) return;
-        const ctx = canvasRef.current ? canvasRef.current.getContext('2d') : null;
-        if (!ctx) return;
-        const rect = canvasRef.current.getBoundingClientRect();
-        const x = e.clientX - rect.left;
-        const y = e.clientY - rect.top;
-        ctx.lineTo(x, y);
-        ctx.stroke();
-    };
-
-    const handleMouseDown = (e) => {
-        if (!isDrawing) return;
-        const ctx = canvasRef.current ? canvasRef.current.getContext('2d') : null;
-        if (!ctx) return;
-        const rect = canvasRef.current.getBoundingClientRect();
-        const x = e.clientX - rect.left;
-        const y = e.clientY - rect.top;
-        ctx.beginPath();
-        ctx.moveTo(x, y);
-    };
-
-    const handleMouseUp = () => {
-        if (!isDrawing) return;
-        const ctx = canvasRef.current ? canvasRef.current.getContext('2d') : null;
-        if (!ctx) return;
-        ctx.closePath();
-    };
-
     return (
         isOpen && (
             <div className="modal" style={{ display: 'block' }}>
                 <div className="modal-content" ref={modalRef}>
                     <span className="close" onClick={() => { stopCamera(); onClose(); }}>&times;</span>
                     <video ref={videoRef} style={{ display: 'none' }}></video>
-                    <canvas
-                        ref={canvasRef}
-                        width={640}
-                        height={480}
-                        onMouseDown={handleMouseDown}
-                        onMouseMove={handleCanvasDraw}
-                        onMouseUp={handleMouseUp}
-                    ></canvas>
+                    <canvas ref={canvasRef} width={640} height={480}></canvas>
                     <div className="instructions">
                         <p>Press 'W' to start drawing</p>
                         <p>Release 'W' to stop drawing</p>

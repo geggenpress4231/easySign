@@ -34,6 +34,10 @@ def smooth_coordinates(last_c, current_c, factor):
 def decode_base64_image(base64_str):
     """Decode a base64 string into an image."""
     try:
+        # Ensure the base64 string starts with 'data:image'
+        if not base64_str.startswith('data:image'):
+            raise ValueError("Invalid base64 image string")
+
         image_data = base64_str.split(",")[1]
         image_bytes = base64.b64decode(image_data)
         return Image.open(BytesIO(image_bytes))
@@ -93,6 +97,7 @@ def process_frame_endpoint():
 
         return jsonify({'image': 'data:image/jpeg;base64,' + encoded_image})
     except Exception as e:
+        print(f"Error processing frame: {e}")
         return jsonify({'error': str(e)}), 500
 
 @app.route('/start_drawing', methods=['POST'])
@@ -127,4 +132,5 @@ def save_signature():
     return send_file('signature.png', mimetype='image/png')
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(debug=True, host='0.0.0.0')  # Make sure the app listens on all interfaces
+
