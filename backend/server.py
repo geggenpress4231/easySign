@@ -3,9 +3,9 @@ from flask_cors import CORS
 import cv2
 import mediapipe as mp
 import numpy as np
-import base64
 from io import BytesIO
 from PIL import Image
+import base64
 
 app = Flask(__name__)
 CORS(app)
@@ -30,20 +30,6 @@ smooth_factor = 0.2  # Factor for smoothing
 def smooth_coordinates(last_c, current_c, factor):
     """Smooth the coordinates."""
     return last_c + (current_c - last_c) * factor
-
-def decode_base64_image(base64_str):
-    """Decode a base64 string into an image."""
-    try:
-        # Ensure the base64 string starts with 'data:image'
-        if not base64_str.startswith('data:image'):
-            raise ValueError("Invalid base64 image string")
-
-        image_data = base64_str.split(",")[1]
-        image_bytes = base64.b64decode(image_data)
-        return Image.open(BytesIO(image_bytes))
-    except Exception as e:
-        print(f"Error decoding base64 image: {e}")
-        raise
 
 def process_frame(image):
     global is_drawing, last_x, last_y, canvas
@@ -84,21 +70,16 @@ def process_frame(image):
 
 @app.route('/process_frame', methods=['POST'])
 def process_frame_endpoint():
-    data = request.json
-    if 'image' not in data:
+    if 'image' not in request.files:
         return jsonify({'error': 'No image provided'}), 400
 
-    try:
-        image = decode_base64_image(data['image'])
-        processed_frame = process_frame(image)
+    image_file = request.files['image']
+    image = Image.open(image_file.stream)
+    processed_frame = process_frame(image)
 
-        _, buffer = cv2.imencode('.jpg', processed_frame)
-        encoded_image = base64.b64encode(buffer).decode('utf-8')
-
-        return jsonify({'image': 'data:image/jpeg;base64,' + encoded_image})
-    except Exception as e:
-        print(f"Error processing frame: {e}")
-        return jsonify({'error': str(e)}), 500
+    _, buffer = cv2.imencode('.jpg', processed_frame)
+    processed_image_base64 = base64.b64encode(buffer).decode('utf-8')
+    return jsonify({'image': 'data:image/jpeg;base64,' + processed_image_base64})
 
 @app.route('/start_drawing', methods=['POST'])
 def start_drawing():
@@ -127,10 +108,9 @@ def save_signature():
     # Create a black-and-white version of the canvas for saving
     save_canvas = np.ones((480, 640, 3), dtype=np.uint8) * 255  # White background
     save_canvas[np.where((canvas == [0, 0, 255]).all(axis=2))] = [0, 0, 0]  # Black drawing
-    cv2.imwrite('signature.png', save_canvas)  # Save the signature
+    _, buffer = cv2.imencode('.png', save_canvas)  # Save the signature
     print("Signature saved")
-    return send_file('signature.png', mimetype='image/png')
+    return send_file(BytesIO(buffer), mimetype='image/png')
 
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0')  # Make sure the app listens on all interfaces
-
+    app.run(debug=True)

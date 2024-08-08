@@ -1,19 +1,13 @@
 version: '3.8'
 
 services:
-  frontend:
-    build: ./frontend
+  backend:
+    build:
+      context: ./backend
     ports:
-      - "3000:80"  # Mapping frontend to localhost:3000
-    depends_on:
-      - backend
+      - "5000:5000"
     networks:
       - app-network
-
-  backend:
-    build: ./backend
-    ports:
-      - "5000:5000"  # Mapping backend to localhost:5000
     environment:
       - FLASK_ENV=development
     devices:
@@ -21,8 +15,21 @@ services:
     cap_add:
       - SYS_ADMIN
     privileged: true
+
+  frontend:
+    build:
+      context: ./frontend
+    ports:
+      - "80:80"
     networks:
       - app-network
+    depends_on:
+      - backend
+    devices:
+      - "/dev/video0:/dev/video0"
+    cap_add:
+      - SYS_ADMIN
+    privileged: true
 
 networks:
   app-network:
